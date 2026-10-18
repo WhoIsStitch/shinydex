@@ -486,6 +486,7 @@ body.rainbow .shell{animation:rb 1.2s linear infinite}@keyframes rb{to{filter:hu
  .msg{padding:2px 10px}.mtb{right:8px}
 }
 @media(max-width:420px){.mnav button span{font-size:10px}.hchip small{display:none}.g3,.g4{grid-template-columns:1fr 1fr}}
+@media(max-width:900px){body:not(.menu) .rail,body:not(.menu) .chan{transform:translateX(calc(-100% - 90px))!important;box-shadow:none}.chan{box-shadow:12px 0 40px #0008}}
 @media(max-width:900px){.hdr{padding-top:env(safe-area-inset-top);height:calc(52px + env(safe-area-inset-top))}.rail,.chan{padding-top:env(safe-area-inset-top)}input,select,textarea{font-size:16px!important}body{-webkit-tap-highlight-color:transparent;overscroll-behavior:none}}</style></head><body>
 <canvas id="bg"></canvas><canvas id="fx"></canvas>
 <div class="shell" id="shell">
@@ -2121,4 +2122,4 @@ document.addEventListener("pointermove",e=>{if(reduced()||e.pointerType==="touch
 document.addEventListener("pointerout",e=>{const c=e.target.closest&&e.target.closest(".card");if(c){c.style.setProperty("--rx","0deg");c.style.setProperty("--ry","0deg")}});
 /* boot */
 applySet();dailyInit();checkAch();S.logSeen=S.logSeen||Date.now();render();booted=true;setTimeout(()=>{const sp=$("splash");if(sp){sp.classList.add("out");setTimeout(()=>sp.remove(),600)}},150);backupNudge();if(welcome)setTimeout(()=>toast("\ud83d\udd25 "+welcome.n+"-day streak!","+"+welcome.b+" XP daily bonus"),900);
-</script><script>window.SHINYDEX_VERSION="202610181644";if("serviceWorker" in navigator&&location.protocol==="https:"){navigator.serviceWorker.register("sw.js").then(r=>{r.update();r.addEventListener("updatefound",()=>{const w=r.installing;w&&w.addEventListener("statechange",()=>{if(w.state==="installed"&&navigator.serviceWorker.controller)toast("✨ ShinyDex updated","You're on the newest version")})})}).catch(()=>{})}</script></body></html>
+</script><script>window.SHINYDEX_VERSION="202610181653";if("serviceWorker" in navigator&&location.protocol==="https:"){navigator.serviceWorker.register("sw.js").then(r=>{r.update();r.addEventListener("updatefound",()=>{const w=r.installing;w&&w.addEventListener("statechange",()=>{if(w.state==="installed"&&navigator.serviceWorker.controller)toast("✨ ShinyDex updated","You're on the newest version")})})}).catch(()=>{})}</script></body></html>
