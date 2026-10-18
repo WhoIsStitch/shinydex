@@ -495,6 +495,18 @@ body.rainbow .shell{animation:rb 1.2s linear infinite}@keyframes rb{to{filter:hu
 .acctrow{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px}.acctpic{width:56px;height:56px;border-radius:50%}
 .savepick{display:flex;flex-direction:column;gap:10px}.savepick .btn{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 14px;text-align:left}.savepick small{color:inherit;opacity:.75;font-weight:400}
 @media(max-width:900px){.cloudchip span{display:none}}
+/* ===== low-power mode (phones / slow devices) ===== */
+.lowpower *,.lowpower *::before,.lowpower *::after{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.lowpower .card,.lowpower .bs,.lowpower .frow,.lowpower .trow,.lowpower .tc,.lowpower .gcard{animation:none!important;transform:none!important;box-shadow:none}
+.lowpower .card::before,.lowpower .card.done .shine,.lowpower .hero::after,.lowpower .mbar i::after{display:none!important}
+.lowpower .card img,.lowpower .bs img{transition:none}.lowpower .card{content-visibility:auto;contain-intrinsic-size:110px 150px}
+.lowpower .ava,.lowpower .lvring,.lowpower .botav{animation:none!important}
+.lowpower #view.enter>*{animation-duration:.18s}
+.lowpower .mnav,.lowpower .hdr,.lowpower .tabswrap{background:var(--rail)}
+.dexsent{height:1px}
+.totop{position:fixed;right:16px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:40;width:44px;height:44px;border-radius:50%;border:1px solid var(--bd);background:var(--card2);color:var(--tx);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px #0007;transform:rotate(180deg)}.totop.hide{display:none}
+@media(min-width:901px){.totop{bottom:24px;right:290px}}
+@media(max-width:900px){.btn{min-height:40px}.btn.sm{min-height:34px}.chip{min-height:32px}.seg button{padding:8px 14px}.tab{min-height:56px}#view{-webkit-overflow-scrolling:touch}}
 @media(max-width:900px){.hdr{padding-top:env(safe-area-inset-top);height:calc(52px + env(safe-area-inset-top))}.rail,.chan{padding-top:env(safe-area-inset-top)}input,select,textarea{font-size:16px!important}body{-webkit-tap-highlight-color:transparent;overscroll-behavior:none}}</style></head><body>
 <canvas id="bg"></canvas><canvas id="fx"></canvas>
 <div class="shell" id="shell">
@@ -2172,6 +2184,24 @@ VIEWS.account=()=>{const u=CL.user;
 INIT.account=()=>{if(cloudOK())fb().catch(e=>cloudSet("err","Couldn't load sign-in: "+e.message))};
 (function(){const hr=document.querySelector(".hdr .hr");if(hr&&cloudOK())hr.insertAdjacentHTML("afterbegin",cloudChip())})();
 if(cloudOK()&&LS("shinyDex.signedIn")==="1")fb().catch(()=>cloudSet("err","Offline – will sync when back online"));
+/* ================= speed: low-power mode on phones, lazy dex grid, lighter sync ================= */
+const LOWPOWER=matchMedia("(max-width:900px)").matches||matchMedia("(pointer:coarse)").matches||(navigator.hardwareConcurrency||8)<=4;
+if(LOWPOWER)document.documentElement.classList.add("lowpower");
+/* background stars: off on phones (they redraw 60 times a second) */
+{const _bg=bgLoop;bgLoop=function(){if(LOWPOWER){bx.clearRect(0,0,bgc.width,bgc.height);return}_bg()}}
+/* cursor trail never runs on touch screens */
+if(LOWPOWER)S.set.trail=false;
+/* Shiny Dex: draw cards in batches as you scroll instead of all 1,025 at once */
+let dexMore=null;
+dexGrid=function(anim=true){const L=dexList(),g=$("grid");if(!g)return;g.classList.toggle("noin",!anim||LOWPOWER);g.style.setProperty("--cw",S.ui.mode==="compact"?"92px":S.ui.size+"px");$("dempty").classList.toggle("hide",L.length>0);
+ const step=LOWPOWER?60:150;let shown=Math.min(step,L.length);g.innerHTML=L.slice(0,shown).map((p,i)=>cardHtml(p,i)).join("");
+ if(dexMore)dexMore.disconnect();if(shown>=L.length)return;
+ const s=document.createElement("div");s.className="dexsent";g.after(s);
+ dexMore=new IntersectionObserver(es=>{if(!es[0].isIntersecting)return;const next=L.slice(shown,shown+step);g.insertAdjacentHTML("beforeend",next.map((p,i)=>cardHtml(p,i)).join(""));shown+=next.length;if(shown>=L.length){dexMore.disconnect();s.remove()}},{root:$("view"),rootMargin:"800px"});dexMore.observe(s)};
+{const _r=render;render=function(a){document.querySelectorAll(".dexsent").forEach(x=>x.remove());if(dexMore){dexMore.disconnect();dexMore=null}_r(a)}}
+/* back-to-top button on long pages */
+(function(){const b=document.createElement("button");b.className="totop hide";b.setAttribute("aria-label","Back to top");b.innerHTML=ic("chev",20);document.body.appendChild(b);
+ b.onclick=()=>$("view").scrollTo({top:0,behavior:"smooth"});$("view").addEventListener("scroll",()=>b.classList.toggle("hide",$("view").scrollTop<900),{passive:true})})();
 /* palette */
 let pi=0,pres=[];
 function openPal(){openOv(`<div class="modal pal" style="padding:0;background:none;border:0"><input id="pq" placeholder="Search Pokémon, abilities, moves or pages..." autocomplete="off"><div class="res" id="pr"></div></div>`);const f=()=>{const q=$("pq").value.trim().toLowerCase();pres=PAGES.filter(p=>!q||p[1].toLowerCase().includes(q)).map(p=>({k:"page",id:p[0],n:ic(p[2],16)+" "+p[1],s:"Page"}));if(q){pres=pres.concat(RAW.filter(p=>p.q.includes(q)).slice(0,8).map(p=>({k:"mon",id:p.id,n:p.name,s:"#"+pad(p.id)})));pres=pres.concat(Object.keys(AB).filter(id=>AB[id][0].toLowerCase().includes(q)).slice(0,4).map(id=>({k:"abil",id,n:"\ud83d\udca0 "+AB[id][0],s:"Ability"})));pres=pres.concat(Object.keys(MV).filter(id=>MV[id][0].toLowerCase().includes(q)).slice(0,4).map(id=>({k:"move",id,n:"\u2694\ufe0f "+MV[id][0],s:"Move"})))}if(q)pres.push({k:"ask",id:$("pq").value.trim(),n:ic("bot",16)+" Ask ShinyDex AI: “"+esc($("pq").value.trim())+"”",s:"AI"});pi=0;pr()};
@@ -2209,4 +2239,4 @@ document.addEventListener("pointermove",e=>{if(reduced()||e.pointerType==="touch
 document.addEventListener("pointerout",e=>{const c=e.target.closest&&e.target.closest(".card");if(c){c.style.setProperty("--rx","0deg");c.style.setProperty("--ry","0deg")}});
 /* boot */
 applySet();dailyInit();checkAch();S.logSeen=S.logSeen||Date.now();render();booted=true;setTimeout(()=>{const sp=$("splash");if(sp){sp.classList.add("out");setTimeout(()=>sp.remove(),600)}},150);backupNudge();if(welcome)setTimeout(()=>toast("\ud83d\udd25 "+welcome.n+"-day streak!","+"+welcome.b+" XP daily bonus"),900);
-</script><script>window.SHINYDEX_VERSION="202610181703";if("serviceWorker" in navigator&&location.protocol==="https:"){navigator.serviceWorker.register("sw.js").then(r=>{r.update();r.addEventListener("updatefound",()=>{const w=r.installing;w&&w.addEventListener("statechange",()=>{if(w.state==="installed"&&navigator.serviceWorker.controller)toast("✨ ShinyDex updated","You're on the newest version")})})}).catch(()=>{})}</script></body></html>
+</script><script>window.SHINYDEX_VERSION="202610181725";if("serviceWorker" in navigator&&location.protocol==="https:"){navigator.serviceWorker.register("sw.js").then(r=>{r.update();r.addEventListener("updatefound",()=>{const w=r.installing;w&&w.addEventListener("statechange",()=>{if(w.state==="installed"&&navigator.serviceWorker.controller)toast("✨ ShinyDex updated","You're on the newest version")})})}).catch(()=>{})}</script></body></html>
