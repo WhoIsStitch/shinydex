@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#1e1f22"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="ShinyDex"><link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" href="icon-192.png">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#1e1f22"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="ShinyDex"><link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" href="icon-192.png"><script src="firebase-config.js"></script>
 <meta name="color-scheme" content="dark">
 <title>ShinyDex &ndash; Shiny Living Dex Tracker</title>
 <style>
@@ -487,6 +487,14 @@ body.rainbow .shell{animation:rb 1.2s linear infinite}@keyframes rb{to{filter:hu
 }
 @media(max-width:420px){.mnav button span{font-size:10px}.hchip small{display:none}.g3,.g4{grid-template-columns:1fr 1fr}}
 @media(max-width:900px){body:not(.menu) .rail,body:not(.menu) .chan{transform:translateX(calc(-100% - 90px))!important;box-shadow:none}.chan{box-shadow:12px 0 40px #0008}}
+.cloudchip{gap:5px;padding:4px 10px;font-size:12px}.cloudchip.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,transparent)}.cloudchip.err{color:var(--bad);border-color:var(--bad)}.cloudchip.sync svg,.cloudchip.wait svg{animation:pulse2 1s ease-in-out infinite}@keyframes pulse2{50%{opacity:.35}}
+.cloudhero{width:84px;height:84px;margin:4px auto 8px;border-radius:26px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--ac),var(--ac2));color:#15120a}
+.gbtn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;font-weight:700;background:#fff;color:#1f1f1f;border-color:#ddd;margin-top:10px}.gbtn:hover{border-color:var(--ac)}
+.ordiv{display:flex;align-items:center;gap:10px;color:var(--mu);font-size:12px;margin:16px 0 10px}.ordiv::before,.ordiv::after{content:"";flex:1;height:1px;background:var(--bd)}
+.acct .fld input{font-size:16px}.linkbtn{margin-top:8px;background:none!important;border:0!important;color:var(--mu)}
+.acctrow{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px}.acctpic{width:56px;height:56px;border-radius:50%}
+.savepick{display:flex;flex-direction:column;gap:10px}.savepick .btn{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 14px;text-align:left}.savepick small{color:inherit;opacity:.75;font-weight:400}
+@media(max-width:900px){.cloudchip span{display:none}}
 @media(max-width:900px){.hdr{padding-top:env(safe-area-inset-top);height:calc(52px + env(safe-area-inset-top))}.rail,.chan{padding-top:env(safe-area-inset-top)}input,select,textarea{font-size:16px!important}body{-webkit-tap-highlight-color:transparent;overscroll-behavior:none}}</style></head><body>
 <canvas id="bg"></canvas><canvas id="fx"></canvas>
 <div class="shell" id="shell">
@@ -2085,6 +2093,85 @@ document.addEventListener("touchstart",e=>{if(innerWidth>900||e.touches.length>1
 document.addEventListener("touchend",e=>{if(!sw0)return;const t=e.changedTouches[0],dx=t.clientX-sw0.x,dy=Math.abs(t.clientY-sw0.y);if(dy<60){if(!sw0.open&&dx>60){peekSec=null;buildShell();document.body.classList.add("menu")}else if(sw0.open&&dx<-60)document.body.classList.remove("menu")}sw0=null},{passive:true});
 /* keep the active channel visible when the drawer opens */
 document.addEventListener("transitionend",e=>{if(e.target&&e.target.id==="chan"&&document.body.classList.contains("menu")){const on=document.querySelector("#chan .ch.on");if(on)on.scrollIntoView({block:"nearest"});moveInd()}});
+/* ================= Account & cloud save (Firebase Auth + Firestore) ================= */
+/* The web config lives in firebase-config.js next to index.html (window.SHINYDEX_FIREBASE). */
+const FB_BASE="https://www.gstatic.com/firebasejs/12.19.0/";
+ICONS.cloud='<path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 9.5a4 4 0 0 1-.5 8.5z"/>';
+ICONS.cloudok='<path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 9.5a4 4 0 0 1-.5 8.5z"/><path d="M9.5 13.5l2 2 3.5-3.5"/>';
+const LS=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v)}catch(e){return null}};
+const DEVICE=LS("shinyDex.dev")||(()=>{const d=uid()+uid();LS("shinyDex.dev",d);return d})();
+const CL={fb:null,user:null,status:"off",lastPush:"",lastAt:+LS("shinyDex.syncAt")||0,unsub:null,err:""};
+const cloudOK=()=>!!window.SHINYDEX_FIREBASE;
+async function fb(){if(CL.fb)return CL.fb;if(!cloudOK())throw new Error("Sign-in only works in the online app at whoisstitch.github.io/shinydex");
+ const [A,U,F]=await Promise.all([import(FB_BASE+"firebase-app.js"),import(FB_BASE+"firebase-auth.js"),import(FB_BASE+"firebase-firestore.js")]);
+ const app=A.initializeApp(window.SHINYDEX_FIREBASE),auth=U.getAuth(app),db=F.getFirestore(app);CL.fb={A,U,F,app,auth,db};
+ U.onAuthStateChanged(auth,u=>onUser(u));U.getRedirectResult(auth).catch(e=>authErr(e));return CL.fb}
+function syncable(){const o={};for(const k of ["caught","hunts","ach","set","prof","bonus","daily","streak","arc","log","seen","targets","teams","chat","days","feat","logSeen","lastExport","sim","rem","timer","aiMem"])if(S[k]!==undefined)o[k]=S[k];
+ let s=JSON.stringify(o);if(s.length>900000){o.chat=Object.fromEntries(Object.entries(o.chat||{}).map(([k,v])=>[k,(v||[]).map(m=>Object.assign({},m,{img:undefined})).slice(-60)]));s=JSON.stringify(o)}
+ if(s.length>900000){o.prof=Object.assign({},o.prof,{banner:""});s=JSON.stringify(o)}return s}
+function applyCloud(json){const o=JSON.parse(json);Object.assign(S,o);S.set=Object.assign(DEF().set,o.set||{});S.prof=Object.assign(DEF().prof,o.prof||{});save();applySet();lastXp=null;lastLv=null;lastMem="";render(false)}
+function cloudChip(){const s=CL.status,t={off:"Not signed in",sync:"Syncing…",ok:"Saved to cloud",err:"Sync problem",wait:"Signing in…"}[s]||s;return `<button class="chip cloudchip ${s}" id="cloudchip" data-ch="account" data-tip="${CL.user?esc(CL.user.email||"")+" · ":""}${t}">${ic(s==="ok"?"cloudok":"cloud",15)}<span>${CL.user?(s==="ok"?"Synced":s==="sync"?"Syncing":s==="err"?"Retry":"Sync"):"Sign in"}</span></button>`}
+function cloudSet(st,err){CL.status=st;if(err!==undefined)CL.err=err||"";const el=$("cloudchip");if(el)el.outerHTML=cloudChip();if(route==="account")render(false)}
+async function onUser(u){CL.user=u;if(CL.unsub){CL.unsub();CL.unsub=null}
+ if(!u){LS("shinyDex.signedIn",null);cloudSet("off","");return}
+ LS("shinyDex.signedIn","1");cloudSet("sync","");const {F,db}=CL.fb,ref=F.doc(db,"saves",u.uid);
+ try{const snap=await F.getDoc(ref),local=syncable(),known=LS("shinyDex.syncUid")===u.uid;
+  if(!snap.exists())await push(true);
+  else{const d=snap.data(),remote=d.data||"{}",localEmpty=!Object.keys(S.caught).length&&!S.hunts.length;
+   if(known){if((d.at||0)>CL.lastAt&&d.device!==DEVICE){applyCloud(remote);markSynced(d.at,remote)}else if(local!==remote)await push(true)}
+   else if(localEmpty||local===remote){applyCloud(remote);markSynced(d.at||Date.now(),remote);toast("☁️ Welcome back!","Loaded your cloud save")}
+   else await chooseSave(JSON.parse(remote),d)}
+  LS("shinyDex.syncUid",u.uid);
+  CL.unsub=F.onSnapshot(ref,s=>{if(!s.exists())return;const d=s.data();if(d.device!==DEVICE&&(d.at||0)>CL.lastAt){applyCloud(d.data);markSynced(d.at,d.data);toast("☁️ Synced","Got your latest changes from another device",3000)}});
+  cloudSet("ok")}catch(e){console.error(e);cloudSet("err",e.message)}}
+function markSynced(at,json){CL.lastAt=at;LS("shinyDex.syncAt",String(at));CL.lastPush=json}
+async function push(force){if(!CL.user||!CL.fb)return;const s=syncable();if(!force&&s===CL.lastPush)return;const {F,db}=CL.fb,at=Date.now();cloudSet("sync");
+ try{await F.setDoc(F.doc(db,"saves",CL.user.uid),{data:s,at,device:DEVICE,shinies:Object.keys(S.caught).length,name:S.prof.name});markSynced(at,s);cloudSet("ok","")}catch(e){console.error(e);cloudSet("err",e.message)}}
+setInterval(()=>{if(CL.user&&CL.status!=="sync")push(false)},4000);
+document.addEventListener("visibilitychange",()=>{if(document.hidden&&CL.user)push(false)});
+function chooseSave(remote,d){return new Promise(res=>{const rc=Object.keys(remote.caught||{}).length,lc=Object.keys(S.caught).length;
+ openOv(`<div class="modal"><h3 style="margin-top:0">${ic("cloud",20)} Which save do you want?</h3><p class="hint">This device and your cloud save are different.</p>
+ <div class="savepick"><button class="btn" data-sp="cloud"><b>☁️ Cloud save</b><small>${rc} shinies · saved ${d.at?ago(d.at):"earlier"}</small></button><button class="btn" data-sp="local"><b>📱 This device</b><small>${lc} shinies</small></button><button class="btn pri" data-sp="merge"><b>🔀 Merge both</b><small>Keeps every shiny and hunt from both</small></button></div></div>`);
+ const h=async e=>{const b=e.target.closest&&e.target.closest("[data-sp]");if(!b)return;document.removeEventListener("click",h,true);e.stopPropagation();const c=b.dataset.sp,o=$("ov");if(o)o.remove();
+  if(c==="cloud"){applyCloud(JSON.stringify(remote));markSynced(d.at||Date.now(),syncable())}else{if(c==="merge")mergeIn(remote);await push(true)}
+  toast("☁️ Cloud save ready",c==="cloud"?"Loaded your cloud save":c==="merge"?"Merged and saved":"Saved this device to the cloud");res()};
+ document.addEventListener("click",h,true)})}
+function mergeIn(r){for(const [id,v] of Object.entries(r.caught||{}))if(!S.caught[id]||(v.t||0)<(S.caught[id].t||0))S.caught[id]=Object.assign({},S.caught[id]||{},v);
+ const hid=new Set(S.hunts.map(h=>h.id));(r.hunts||[]).forEach(h=>{if(!hid.has(h.id))S.hunts.push(h)});
+ S.targets=[...new Set([...(S.targets||[]),...(r.targets||[])])];S.ach=Object.assign({},r.ach||{},S.ach);S.bonus=Math.max(S.bonus||0,r.bonus||0);
+ if(r.streak)S.streak.best=Math.max(S.streak.best,r.streak.best||0);const tn=new Set(S.teams.map(t=>t.n));(r.teams||[]).forEach(t=>{if(!tn.has(t.n)&&S.teams.length<8)S.teams.push(t)});
+ S.days=[...new Set([...(S.days||[]),...(r.days||[])])].sort().slice(-200);save();chrome();render(false)}
+function authErr(e){if(!e)return;const c=e.code||"";if(c==="auth/cancelled-popup-request")return;const m={"auth/invalid-credential":"Wrong email or password.","auth/wrong-password":"Wrong email or password.","auth/user-not-found":"No account with that email – tap Create account.","auth/email-already-in-use":"That email already has an account – tap Sign in instead.","auth/weak-password":"Use at least 6 characters for your password.","auth/invalid-email":"That email doesn't look right.","auth/missing-password":"Type a password first.","auth/popup-blocked":"Your browser blocked the Google window. Try again, or use email sign-in.","auth/popup-closed-by-user":"Google sign-in was closed before finishing.","auth/network-request-failed":"No internet connection.","auth/too-many-requests":"Too many tries – wait a minute and try again.","auth/unauthorized-domain":"This web address isn't allowed to sign in yet."}[c]||e.message;cloudSet(CL.user?"ok":"off",m);toast("Couldn't sign in",m,6000)}
+acts.gsign=async()=>{cloudSet("wait");try{const {U,auth}=await fb();const p=new U.GoogleAuthProvider();p.setCustomParameters({prompt:"select_account"});
+ try{await U.signInWithPopup(auth,p)}catch(e){if(e.code==="auth/popup-blocked"||e.code==="auth/operation-not-supported-in-this-environment")await U.signInWithRedirect(auth,p);else throw e}}catch(e){authErr(e)}};
+acts.esign=async el=>{const em=(($("aem")||{}).value||"").trim(),pw=($("apw")||{}).value||"",mode=el.dataset.mode;CL.em=em;if(!em){toast("Enter your email first","");return}cloudSet("wait");
+ try{const {U,auth}=await fb();if(mode==="reset"){await U.sendPasswordResetEmail(auth,em);cloudSet("off","");toast("📧 Reset email sent","Check your inbox (and spam)",6000);return}
+  if(mode==="create")await U.createUserWithEmailAndPassword(auth,em,pw);else await U.signInWithEmailAndPassword(auth,em,pw)}catch(e){authErr(e)}};
+acts.signout=async()=>{if(!confirm("Sign out? Your shinies stay on this device, and your cloud save stays safe."))return;const {U,auth}=await fb();await push(false);await U.signOut(auth);toast("Signed out","")};
+acts.syncnow=async()=>{await push(true);if(CL.status==="ok")toast("☁️ Saved to the cloud","")};
+/* Account page */
+SECTIONS.find(s=>s.k==="me").cats[0][1].unshift(["account","Account & Sync","Sign in to save your shinies to the cloud","cloud"]);
+CHINFO.account={n:"Account & Sync",t:"Sign in to save your shinies to the cloud",i:"cloud",s:"me"};ROUTE_SEC.account="me";ROUTES.push("account");PAGES.splice(10,0,["account","Account & Sync","cloud"]);
+const GLOGO='<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.3-.4-3.5z"/></svg>';
+VIEWS.account=()=>{const u=CL.user;
+ if(!cloudOK())return `<div class="panel acct" style="max-width:520px;margin:auto;text-align:center"><div class="cloudhero">${ic("cloud",44)}</div><h2>Cloud save lives in the online app</h2><p class="hint">Open <b>whoisstitch.github.io/shinydex</b> (on PC or phone) to sign in and sync. This offline copy saves on this computer only.</p></div>`;
+ if(u)return `<div class="panel acct" style="max-width:620px;margin:auto"><div class="acctrow">${u.photoURL?`<img src="${esc(u.photoURL)}" class="acctpic" alt="" referrerpolicy="no-referrer">`:avatarHtml(56)}<div style="flex:1;min-width:0"><h3 style="margin:0">${esc(u.displayName||S.prof.name)}</h3><div class="hint">${esc(u.email||"")}</div></div>${cloudChip()}</div>
+  <p>Your shinies, hunts, profile and settings save to the cloud a few seconds after every change. Sign in with the same account on your phone and PC and they stay in sync automatically.</p>
+  <div class="hint">${CL.lastAt?"Last saved "+ago(CL.lastAt):"Not saved yet"}${CL.err?` · <span style="color:var(--bad)">${esc(CL.err)}</span>`:""}</div>
+  <div class="hbtns" style="margin-top:12px"><button class="btn pri" data-act="syncnow">${ic("cloud",16)} Save now</button><button class="btn dng" data-act="signout">Sign out</button></div>
+  <p class="hint" style="margin-bottom:0">Your Gemini key isn't uploaded – add it on each device in Settings.</p></div>`;
+ return `<div class="panel acct" style="max-width:520px;margin:auto"><div style="text-align:center"><div class="cloudhero">${ic("cloud",44)}</div><h2 style="margin:6px 0">Save your shinies to the cloud</h2><p class="hint">Sign in and everything saves automatically, so you'll never lose it – and it syncs between your phone and PC.</p></div>
+  <button class="btn gbtn" data-act="gsign">${GLOGO} Continue with Google</button>
+  <div class="ordiv"><span>or use email</span></div>
+  <div class="fld"><label>Email</label><input id="aem" type="email" autocomplete="email" placeholder="you@example.com" value="${esc(CL.em||"")}"></div>
+  <div class="fld"><label>Password</label><input id="apw" type="password" autocomplete="current-password" placeholder="At least 6 characters"></div>
+  <div class="hbtns"><button class="btn pri" data-act="esign" data-mode="signin" style="flex:1">Sign in</button><button class="btn" data-act="esign" data-mode="create" style="flex:1">Create account</button></div>
+  <button class="btn sm linkbtn" data-act="esign" data-mode="reset">Forgot password?</button>
+  ${CL.err?`<p style="color:var(--bad);margin-bottom:0">${esc(CL.err)}</p>`:""}
+  <p class="hint" style="margin-bottom:0;font-size:12px">On iPhone, if Google sign-in doesn't come back to the app, use email instead.</p></div>`};
+INIT.account=()=>{if(cloudOK())fb().catch(e=>cloudSet("err","Couldn't load sign-in: "+e.message))};
+(function(){const hr=document.querySelector(".hdr .hr");if(hr&&cloudOK())hr.insertAdjacentHTML("afterbegin",cloudChip())})();
+if(cloudOK()&&LS("shinyDex.signedIn")==="1")fb().catch(()=>cloudSet("err","Offline – will sync when back online"));
 /* palette */
 let pi=0,pres=[];
 function openPal(){openOv(`<div class="modal pal" style="padding:0;background:none;border:0"><input id="pq" placeholder="Search Pokémon, abilities, moves or pages..." autocomplete="off"><div class="res" id="pr"></div></div>`);const f=()=>{const q=$("pq").value.trim().toLowerCase();pres=PAGES.filter(p=>!q||p[1].toLowerCase().includes(q)).map(p=>({k:"page",id:p[0],n:ic(p[2],16)+" "+p[1],s:"Page"}));if(q){pres=pres.concat(RAW.filter(p=>p.q.includes(q)).slice(0,8).map(p=>({k:"mon",id:p.id,n:p.name,s:"#"+pad(p.id)})));pres=pres.concat(Object.keys(AB).filter(id=>AB[id][0].toLowerCase().includes(q)).slice(0,4).map(id=>({k:"abil",id,n:"\ud83d\udca0 "+AB[id][0],s:"Ability"})));pres=pres.concat(Object.keys(MV).filter(id=>MV[id][0].toLowerCase().includes(q)).slice(0,4).map(id=>({k:"move",id,n:"\u2694\ufe0f "+MV[id][0],s:"Move"})))}if(q)pres.push({k:"ask",id:$("pq").value.trim(),n:ic("bot",16)+" Ask ShinyDex AI: “"+esc($("pq").value.trim())+"”",s:"AI"});pi=0;pr()};
@@ -2122,4 +2209,4 @@ document.addEventListener("pointermove",e=>{if(reduced()||e.pointerType==="touch
 document.addEventListener("pointerout",e=>{const c=e.target.closest&&e.target.closest(".card");if(c){c.style.setProperty("--rx","0deg");c.style.setProperty("--ry","0deg")}});
 /* boot */
 applySet();dailyInit();checkAch();S.logSeen=S.logSeen||Date.now();render();booted=true;setTimeout(()=>{const sp=$("splash");if(sp){sp.classList.add("out");setTimeout(()=>sp.remove(),600)}},150);backupNudge();if(welcome)setTimeout(()=>toast("\ud83d\udd25 "+welcome.n+"-day streak!","+"+welcome.b+" XP daily bonus"),900);
-</script><script>window.SHINYDEX_VERSION="202610181653";if("serviceWorker" in navigator&&location.protocol==="https:"){navigator.serviceWorker.register("sw.js").then(r=>{r.update();r.addEventListener("updatefound",()=>{const w=r.installing;w&&w.addEventListener("statechange",()=>{if(w.state==="installed"&&navigator.serviceWorker.controller)toast("✨ ShinyDex updated","You're on the newest version")})})}).catch(()=>{})}</script></body></html>
+</script><script>window.SHINYDEX_VERSION="202610181703";if("serviceWorker" in navigator&&location.protocol==="https:"){navigator.serviceWorker.register("sw.js").then(r=>{r.update();r.addEventListener("updatefound",()=>{const w=r.installing;w&&w.addEventListener("statechange",()=>{if(w.state==="installed"&&navigator.serviceWorker.controller)toast("✨ ShinyDex updated","You're on the newest version")})})}).catch(()=>{})}</script></body></html>
