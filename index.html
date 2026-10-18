@@ -444,7 +444,49 @@ body.rainbow .shell{animation:rb 1.2s linear infinite}@keyframes rb{to{filter:hu
 .wbox{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:5px;max-height:380px;overflow:auto}.wb{position:relative;border:1px solid var(--bd);background:var(--card);border-radius:10px;padding:3px 2px;cursor:pointer;display:flex;flex-direction:column;align-items:center;transition:.15s}.wb img{width:44px;height:44px;image-rendering:pixelated;filter:grayscale(1) brightness(.45)}.wb small{font-size:9.5px;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .wb.own img{filter:none;opacity:.55}.wb.own{border-color:color-mix(in srgb,var(--ok) 50%,transparent)}.wb.hi{border-color:var(--ac);background:color-mix(in srgb,var(--ac) 14%,var(--card));box-shadow:0 0 0 1px var(--ac)}.wb.hi img{filter:none}.wb.hi small{color:var(--tx)}.wb:hover{transform:translateY(-2px) scale(1.05)}
 .wg{margin-bottom:8px}.wgl{font-weight:700;font-size:13px;margin-bottom:4px}.wbar{display:grid;grid-template-columns:120px 1fr auto;gap:8px;align-items:center;font-size:13px;margin:4px 0}.wbar .mbar{margin:0}
-@media(max-width:900px){.hdr{padding-top:env(safe-area-inset-top);height:calc(52px + env(safe-area-inset-top))}.rail,.chan{padding-top:env(safe-area-inset-top)}.composer{margin-bottom:calc(20px + env(safe-area-inset-bottom))}#view{padding-bottom:calc(14px + env(safe-area-inset-bottom))!important}input,select,textarea{font-size:16px!important}body{-webkit-tap-highlight-color:transparent;overscroll-behavior:none}}</style></head><body>
+/* ===== phone layout (PC untouched: everything here is inside the 900px media query) ===== */
+.mnav{display:none}
+@media(max-width:900px){
+ .mnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:45;height:calc(62px + env(safe-area-inset-bottom));padding:0 4px env(safe-area-inset-bottom);background:color-mix(in srgb,var(--rail) 92%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--bd)}
+ .mnav button{position:relative;flex:1;border:0;background:transparent;color:var(--mu);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .15s}
+ .mnav button svg{transition:transform .2s}.mnav button:active svg{transform:scale(.88)}
+ .mnav button.on{color:var(--ac)}.mnav button.on::before{content:"";position:absolute;top:0;left:28%;right:28%;height:3px;border-radius:0 0 3px 3px;background:var(--ac)}
+ .mnb{position:absolute;top:6px;left:calc(50% + 6px);min-width:16px;height:16px;border-radius:8px;background:var(--bad);color:#fff;font-size:10px;font-style:normal;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px}.mnb.hide{display:none}
+ /* drawer sits above the tab bar, bigger touch targets */
+ .rail,.chan{bottom:calc(62px + env(safe-area-inset-bottom))}.chan{width:min(290px,calc(100vw - 72px))}
+ body.menu::after{bottom:calc(62px + env(safe-area-inset-bottom))}
+ .ch{padding:11px 12px;font-size:16px}.cath{padding:10px 6px;font-size:12px}.up{padding:8px}
+ .burger{display:none!important}
+ .hdr{gap:8px;padding-left:12px;padding-right:10px}.hdr .hdiv,.hdr .topic,#memtog{display:none}.hchip{padding:4px 10px}
+ .main #view{padding:12px 12px calc(80px + env(safe-area-inset-bottom))!important}
+ .main #view[data-flush="1"]{padding:0 0 calc(62px + env(safe-area-inset-bottom))!important}
+ .composer{margin:0 10px 10px!important}
+ #toasts{right:10px;left:10px;bottom:calc(74px + env(safe-area-inset-bottom));align-items:stretch}.toast{max-width:none}
+ .xpop{bottom:calc(90px + env(safe-area-inset-bottom))}
+ /* toolbars scroll sideways instead of stacking into a wall of buttons */
+ .tools{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:4px;margin-left:-12px;margin-right:-12px;padding-left:12px;padding-right:12px}.tools::-webkit-scrollbar{display:none}
+ .tools>*{flex:none}.tools input[type=search]{min-width:200px;flex:1 0 200px}#dsz{display:none}
+ .tabs{margin-left:-12px;margin-right:-12px;padding-left:12px;padding-right:12px;scrollbar-width:none}.tab{min-width:86px;padding:8px 10px}
+ .dexhint{font-size:12px}
+ .grid{gap:8px}.card{padding:10px 4px 8px}.card .info{width:30px;height:30px}
+ /* windows become bottom sheets */
+ #ov{align-items:flex-end;padding:0}
+ .modal,.modal.wide{width:100%;max-height:calc(100dvh - 40px);border-radius:22px 22px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));animation:sheet .3s cubic-bezier(.2,.9,.3,1)}
+ .modal::before{content:"";display:block;width:42px;height:5px;border-radius:3px;background:var(--bd);margin:-6px auto 12px}
+ @keyframes sheet{from{transform:translateY(100%)}}
+ .pal{align-self:flex-start;margin-top:calc(10px + env(safe-area-inset-top))}.pal::before{display:none}
+ .mhead{flex-direction:row;text-align:left;gap:12px}.mart{width:96px;height:96px}.mhead h3{font-size:22px}
+ .mtabs{margin-left:-16px;margin-right:-16px;padding:0 10px}
+ .fgrid{grid-template-columns:1fr}
+ /* hunts & arcade */
+ .hunt{grid-template-columns:72px 1fr;gap:12px;padding:14px}.hunt .hs{width:72px;height:72px}.big{font-size:38px}
+ .hbtns .btn.big2{flex:1;padding:14px}.hunt .side{grid-column:1/-1;flex-direction:row}.hunt .side .btn{flex:1}
+ .agopts{grid-template-columns:1fr}.aghl img{width:110px;height:110px}
+ .boxg{gap:4px}.bs small{font-size:9px}
+ .msg{padding:2px 10px}.mtb{right:8px}
+}
+@media(max-width:420px){.mnav button span{font-size:10px}.hchip small{display:none}.g3,.g4{grid-template-columns:1fr 1fr}}
+@media(max-width:900px){.hdr{padding-top:env(safe-area-inset-top);height:calc(52px + env(safe-area-inset-top))}.rail,.chan{padding-top:env(safe-area-inset-top)}input,select,textarea{font-size:16px!important}body{-webkit-tap-highlight-color:transparent;overscroll-behavior:none}}</style></head><body>
 <canvas id="bg"></canvas><canvas id="fx"></canvas>
 <div class="shell" id="shell">
 <nav class="rail" id="rail"></nav>
@@ -2026,6 +2068,22 @@ function smartIntent(t,mons,types,gen){const R={text:"",embs:[],steps:[]},has=re
  if(has(/\bwhat (did|have) i (do|done|caught|catch) today\b|\btoday s summary\b|\bmy day\b/)){const o=act(R,"today_summary",{},"");if(o)R.text=`Today: **${o.caught_today.length}** shin${o.caught_today.length===1?"y":"ies"}${o.caught_today.length?" ("+o.caught_today.join(", ")+")":""}, quests **${o.quests_done}**, streak **${o.streak}**, level **${o.level}**.`;return R}
  if((m=t.match(/\bpokemon (?:that )?(?:start|starting|begin|beginning) with ([a-z]{1,10})\b/))){const L=RAW.filter(p=>nrm(p.name).startsWith(m[1]));R.text=`**${L.length}** Pokémon start with “${m[1].toUpperCase()}”:`;R.embs.push(chipsOf(L.slice(0,40)));return R}
  return null}
+/* ================= phone navigation: bottom tab bar + swipe drawer (PC layout unchanged) ================= */
+const MNAV=[["home","dashboard","home","Home"],["dex","dex","ball","Dex"],["hunt","hunts","target","Hunts"],["chat","chat:ai","bot","AI"],["more","","menu","More"]];
+(function(){const n=document.createElement("nav");n.className="mnav";n.id="mnav";
+ n.innerHTML=MNAV.map(([sec,ch,icon,label])=>`<button data-mn="${sec}"${ch?` data-ch="${ch}"`:""}>${ic(icon,22)}<span>${label}</span><i class="mnb hide"></i></button>`).join("");document.body.appendChild(n);
+ n.addEventListener("click",e=>{const b=e.target.closest("[data-mn]");if(b&&b.dataset.mn==="more"){e.stopPropagation();peekSec=null;buildShell();document.body.classList.toggle("menu")}});})();
+function mnavSync(){const sec=ROUTE_SEC[route],menu=document.body.classList.contains("menu");document.querySelectorAll("#mnav [data-mn]").forEach(b=>{const k=b.dataset.mn;b.classList.toggle("on",menu?k==="more":k===sec||(k==="more"&&!["home","dex","hunt","chat"].includes(sec)))});
+ const hb=document.querySelector('#mnav [data-mn="hunt"] .mnb'),n=S.hunts.filter(h=>!h.found).length;if(hb){hb.textContent=n;hb.classList.toggle("hide",!n)}
+ const qb=document.querySelector('#mnav [data-mn="home"] .mnb'),q=questsLeft();if(qb){qb.textContent=q;qb.classList.toggle("hide",!q)}}
+{const _bs=buildShell;buildShell=function(){_bs();mnavSync()}}
+new MutationObserver(()=>mnavSync()).observe(document.body,{attributes:true,attributeFilter:["class"]});
+/* swipe from the left edge to open the menu, swipe left to close it */
+let sw0=null;
+document.addEventListener("touchstart",e=>{if(innerWidth>900||e.touches.length>1)return;const x=e.touches[0].clientX,open=document.body.classList.contains("menu");if(x<26||open)sw0={x,y:e.touches[0].clientY,open};else sw0=null},{passive:true});
+document.addEventListener("touchend",e=>{if(!sw0)return;const t=e.changedTouches[0],dx=t.clientX-sw0.x,dy=Math.abs(t.clientY-sw0.y);if(dy<60){if(!sw0.open&&dx>60){peekSec=null;buildShell();document.body.classList.add("menu")}else if(sw0.open&&dx<-60)document.body.classList.remove("menu")}sw0=null},{passive:true});
+/* keep the active channel visible when the drawer opens */
+document.addEventListener("transitionend",e=>{if(e.target&&e.target.id==="chan"&&document.body.classList.contains("menu")){const on=document.querySelector("#chan .ch.on");if(on)on.scrollIntoView({block:"nearest"});moveInd()}});
 /* palette */
 let pi=0,pres=[];
 function openPal(){openOv(`<div class="modal pal" style="padding:0;background:none;border:0"><input id="pq" placeholder="Search Pokémon, abilities, moves or pages..." autocomplete="off"><div class="res" id="pr"></div></div>`);const f=()=>{const q=$("pq").value.trim().toLowerCase();pres=PAGES.filter(p=>!q||p[1].toLowerCase().includes(q)).map(p=>({k:"page",id:p[0],n:ic(p[2],16)+" "+p[1],s:"Page"}));if(q){pres=pres.concat(RAW.filter(p=>p.q.includes(q)).slice(0,8).map(p=>({k:"mon",id:p.id,n:p.name,s:"#"+pad(p.id)})));pres=pres.concat(Object.keys(AB).filter(id=>AB[id][0].toLowerCase().includes(q)).slice(0,4).map(id=>({k:"abil",id,n:"\ud83d\udca0 "+AB[id][0],s:"Ability"})));pres=pres.concat(Object.keys(MV).filter(id=>MV[id][0].toLowerCase().includes(q)).slice(0,4).map(id=>({k:"move",id,n:"\u2694\ufe0f "+MV[id][0],s:"Move"})))}if(q)pres.push({k:"ask",id:$("pq").value.trim(),n:ic("bot",16)+" Ask ShinyDex AI: “"+esc($("pq").value.trim())+"”",s:"AI"});pi=0;pr()};
@@ -2063,4 +2121,4 @@ document.addEventListener("pointermove",e=>{if(reduced()||e.pointerType==="touch
 document.addEventListener("pointerout",e=>{const c=e.target.closest&&e.target.closest(".card");if(c){c.style.setProperty("--rx","0deg");c.style.setProperty("--ry","0deg")}});
 /* boot */
 applySet();dailyInit();checkAch();S.logSeen=S.logSeen||Date.now();render();booted=true;setTimeout(()=>{const sp=$("splash");if(sp){sp.classList.add("out");setTimeout(()=>sp.remove(),600)}},150);backupNudge();if(welcome)setTimeout(()=>toast("\ud83d\udd25 "+welcome.n+"-day streak!","+"+welcome.b+" XP daily bonus"),900);
-</script><script>if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{})</script></body></html>
+</script><script>window.SHINYDEX_VERSION="202610181644";if("serviceWorker" in navigator&&location.protocol==="https:"){navigator.serviceWorker.register("sw.js").then(r=>{r.update();r.addEventListener("updatefound",()=>{const w=r.installing;w&&w.addEventListener("statechange",()=>{if(w.state==="installed"&&navigator.serviceWorker.controller)toast("✨ ShinyDex updated","You're on the newest version")})})}).catch(()=>{})}</script></body></html>
