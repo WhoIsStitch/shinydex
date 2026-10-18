@@ -507,6 +507,9 @@ body.rainbow .shell{animation:rb 1.2s linear infinite}@keyframes rb{to{filter:hu
 .totop{position:fixed;right:16px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:40;width:44px;height:44px;border-radius:50%;border:1px solid var(--bd);background:var(--card2);color:var(--tx);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px #0007;transform:rotate(180deg)}.totop.hide{display:none}
 @media(min-width:901px){.totop{bottom:24px;right:290px}}
 @media(max-width:900px){.btn{min-height:40px}.btn.sm{min-height:34px}.chip{min-height:32px}.seg button{padding:8px 14px}.tab{min-height:56px}#view{-webkit-overflow-scrolling:touch}}
+.wkchart{width:100%;height:auto;display:block}.wkchart text{font-size:9px;fill:var(--mu)}
+.jlist{display:flex;flex-direction:column;gap:6px;max-height:520px;overflow:auto}.jrow{display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid var(--bd)}.jrow:last-child{border:0}.jrow img{width:48px;height:48px;cursor:pointer}.jnote{font-size:13px;margin-top:2px;opacity:.85}
+.micb.on{color:var(--bad);animation:pulse2 1s ease-in-out infinite}
 @media(max-width:900px){.hdr{padding-top:env(safe-area-inset-top);height:calc(52px + env(safe-area-inset-top))}.rail,.chan{padding-top:env(safe-area-inset-top)}input,select,textarea{font-size:16px!important}body{-webkit-tap-highlight-color:transparent;overscroll-behavior:none}}</style></head><body>
 <canvas id="bg"></canvas><canvas id="fx"></canvas>
 <div class="shell" id="shell">
@@ -2128,17 +2131,18 @@ async function onUser(u){CL.user=u;if(CL.unsub){CL.unsub();CL.unsub=null}
  if(!u){LS("shinyDex.signedIn",null);cloudSet("off","");return}
  LS("shinyDex.signedIn","1");cloudSet("sync","");const {F,db}=CL.fb,ref=F.doc(db,"saves",u.uid);
  try{const snap=await F.getDoc(ref),local=syncable(),known=LS("shinyDex.syncUid")===u.uid;
+  if(snap.exists()&&snap.data().gem&&!gemKey())setGemKey(snap.data().gem,1);
   if(!snap.exists())await push(true);
   else{const d=snap.data(),remote=d.data||"{}",localEmpty=!Object.keys(S.caught).length&&!S.hunts.length;
    if(known){if((d.at||0)>CL.lastAt&&d.device!==DEVICE){applyCloud(remote);markSynced(d.at,remote)}else if(local!==remote)await push(true)}
    else if(localEmpty||local===remote){applyCloud(remote);markSynced(d.at||Date.now(),remote);toast("☁️ Welcome back!","Loaded your cloud save")}
    else await chooseSave(JSON.parse(remote),d)}
   LS("shinyDex.syncUid",u.uid);
-  CL.unsub=F.onSnapshot(ref,s=>{if(!s.exists())return;const d=s.data();if(d.device!==DEVICE&&(d.at||0)>CL.lastAt){applyCloud(d.data);markSynced(d.at,d.data);toast("☁️ Synced","Got your latest changes from another device",3000)}});
+  CL.unsub=F.onSnapshot(ref,s=>{if(!s.exists())return;const d=s.data();if(d.gem&&d.gem!==gemKey())setGemKey(d.gem,1);if(d.device!==DEVICE&&(d.at||0)>CL.lastAt){applyCloud(d.data);markSynced(d.at,d.data);toast("☁️ Synced","Got your latest changes from another device",3000)}});
   cloudSet("ok")}catch(e){console.error(e);cloudSet("err",e.message)}}
 function markSynced(at,json){CL.lastAt=at;LS("shinyDex.syncAt",String(at));CL.lastPush=json}
 async function push(force){if(!CL.user||!CL.fb)return;const s=syncable();if(!force&&s===CL.lastPush)return;const {F,db}=CL.fb,at=Date.now();cloudSet("sync");
- try{await F.setDoc(F.doc(db,"saves",CL.user.uid),{data:s,at,device:DEVICE,shinies:Object.keys(S.caught).length,name:S.prof.name});markSynced(at,s);cloudSet("ok","")}catch(e){console.error(e);cloudSet("err",e.message)}}
+ try{await F.setDoc(F.doc(db,"saves",CL.user.uid),{data:s,at,device:DEVICE,shinies:Object.keys(S.caught).length,name:S.prof.name,...(gemKey()?{gem:gemKey()}:{})});markSynced(at,s);cloudSet("ok","")}catch(e){console.error(e);cloudSet("err",e.message)}}
 setInterval(()=>{if(CL.user&&CL.status!=="sync")push(false)},4000);
 document.addEventListener("visibilitychange",()=>{if(document.hidden&&CL.user)push(false)});
 function chooseSave(remote,d){return new Promise(res=>{const rc=Object.keys(remote.caught||{}).length,lc=Object.keys(S.caught).length;
@@ -2202,6 +2206,78 @@ dexGrid=function(anim=true){const L=dexList(),g=$("grid");if(!g)return;g.classLi
 /* back-to-top button on long pages */
 (function(){const b=document.createElement("button");b.className="totop hide";b.setAttribute("aria-label","Back to top");b.innerHTML=ic("chev",20);document.body.appendChild(b);
  b.onclick=()=>$("view").scrollTo({top:0,behavior:"smooth"});$("view").addEventListener("scroll",()=>b.classList.toggle("hide",$("view").scrollTop<900),{passive:true})})();
+/* ================= Insights page (charts, goals, journal, share card) + AI advisor / next target / recap / voice ================= */
+S.goals=Object.assign({w:5,claim:""},S.goals||{});
+const wkStart=t=>{const d=new Date(t);d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return d.getTime()};
+function weekCounts(n){const now=wkStart(Date.now()),c=Array(n).fill(0);Object.values(S.caught).forEach(x=>{const i=Math.round((now-wkStart(x.t))/6048e5);if(i>=0&&i<n)c[n-1-i]++});return c}
+function goalStreak(){const c=weekCounts(52);let n=0;for(let i=c.length-2;i>=0&&c[i]>=S.goals.w;i--)n++;return n+(c[c.length-1]>=S.goals.w?1:0)}
+function huntLuck(){return S.hunts.filter(h=>h.found&&h.enc>0).map(h=>({h,r:h.enc/huntD(h)})).sort((a,b)=>a.r-b.r)}
+/* register the page under Home */
+ROUTE_SEC.insights="home";ROUTES.push("insights");
+SECTIONS[0].cats[0][1].push(["insights","Insights","Charts, weekly goals, your shiny journal and a share card","trend"]);
+CHINFO.insights={n:"Insights",t:"Charts, weekly goals, your shiny journal and a share card",i:"trend",s:"home"};
+VIEWS.insights=()=>{const wk=weekCounts(12),mx=Math.max(1,...wk),now=wk[11],g=S.goals.w,L=huntLuck(),fin=S.hunts.filter(h=>h.found),avg=fin.length?fin.reduce((a,h)=>a+h.enc,0)/fin.length:0;
+ const recent=Object.entries(S.caught).map(([id,c])=>({id:+id,c})).sort((a,b)=>b.c.t-a.c.t).slice(0,25);
+ const hrow=(o,lab)=>o?`<div class="mh"><img src="${o.h.mon?spr(o.h.mon,1):""}" alt=""><div><b>${lab}: ${esc(huntName(o.h))}</b><small>${num(o.h.enc)} encounters · ${o.r.toFixed(2)}× the odds</small></div></div>`:"";
+ return `<h2 class="sec">📈 Shinies per week <small>last 12 weeks</small></h2>
+ <div class="panel"><svg viewBox="0 0 360 130" class="wkchart" role="img" aria-label="Shinies per week">${wk.map((v,i)=>{const h=v/mx*100;return `<rect x="${i*30+4}" y="${110-h}" width="22" height="${Math.max(h,1.5)}" rx="4" fill="var(--ac)" opacity="${i===11?1:.55}"><title>${v}</title></rect>${v?`<text x="${i*30+15}" y="${106-h}" text-anchor="middle">${v}</text>`:""}`}).join("")}<text x="4" y="126">12 wk ago</text><text x="356" y="126" text-anchor="end">this week</text></svg></div>
+ <div class="g3" style="margin-top:12px"><div class="stat"><b>${fin.length}</b><small>hunts finished</small></div><div class="stat"><b>${num(avg)}</b><small>average encounters</small></div><div class="stat"><b>${L.length?L[0].r.toFixed(2)+"×":"–"}</b><small>luckiest hunt (odds used)</small></div></div>
+ ${L.length?`<div class="panel" style="margin-top:12px">${hrow(L[0],"🍀 Luckiest")}${L.length>1?hrow(L[L.length-1],"😩 Toughest"):""}</div>`:""}
+ <h2 class="sec">🎯 Weekly goal <small>new week starts Monday</small></h2>
+ <div class="panel"><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><b style="font-size:20px">${now} / ${g}</b><span class="hint">shinies this week</span><span class="chip">🔥 ${goalStreak()} week streak</span><span style="flex:1"></span><button class="btn sm" data-act="goalset">Change goal</button>${now>=g&&S.goals.claim!==dkey(new Date(wkStart(Date.now())))?'<button class="btn sm pri" data-act="goalclaim">Claim +100 XP</button>':""}</div>${bar(Math.min(100,now/g*100))}</div>
+ <h2 class="sec">📓 Shiny journal <small>tap a shiny to add a note</small></h2>
+ <div class="panel jlist">${recent.map(x=>`<div class="jrow"><img loading="lazy" src="${spr(x.id)}" alt="" data-act="mon" data-id="${x.id}"><div style="flex:1;min-width:0"><b>${byId[x.id].name}</b> <small class="hint">${fmtD(x.c.t)}${x.c.g?" · "+esc(x.c.g):""}${x.c.m?" · "+esc(x.c.m):""}</small>${x.c.note?`<div class="jnote">${esc(x.c.note)}</div>`:""}</div><button class="btn sm" data-act="jnote" data-id="${x.id}">✏️ Note</button></div>`).join("")||'<div class="empty">Catch a shiny and it shows up here.</div>'}</div>
+ <h2 class="sec">📸 Share card</h2>
+ <div class="panel" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><span class="hint" style="flex:1;min-width:180px">Makes a picture of your progress and newest shinies to post or send.</span><button class="btn pri" data-act="sharecard">Make share card</button></div>`};
+acts.goalset=()=>{const v=prompt("How many shinies a week?",S.goals.w);if(v===null)return;const n=Math.max(1,Math.min(200,parseInt(v)||0));if(!n)return;S.goals.w=n;save();render(false)};
+acts.goalclaim=()=>{const k=dkey(new Date(wkStart(Date.now())));if(S.goals.claim===k)return;S.goals.claim=k;addBonus(100,"Weekly goal hit");bigBurst();render(false)};
+acts.jnote=el=>{const c=S.caught[el.dataset.id];if(!c)return;const v=prompt("Note for "+byId[el.dataset.id].name+":",c.note||"");if(v===null)return;c.note=v.trim().slice(0,300);save();render(false)};
+/* share card: drawn on a canvas, shared with the phone's share sheet or downloaded */
+const loadImg=src=>new Promise(r=>{const i=new Image();i.crossOrigin="anonymous";i.onload=()=>r(i);i.onerror=()=>r(null);i.src=src});
+acts.sharecard=async()=>{toast("Making your card…","");const W=1080,cv=document.createElement("canvas");cv.width=cv.height=W;const c=cv.getContext("2d"),acc=ACCENTS[S.set.accent]||ACCENTS.gold;
+ const gr=c.createLinearGradient(0,0,W,W);gr.addColorStop(0,"#16171c");gr.addColorStop(1,"#26222e");c.fillStyle=gr;c.fillRect(0,0,W,W);
+ const n=nCaught(),li=lvInfo(totalXp());c.fillStyle=acc[0];c.font="bold 64px system-ui,sans-serif";c.fillText("✨ "+(S.prof.name||"Trainer"),70,140);
+ c.fillStyle="#cfd0d6";c.font="36px system-ui,sans-serif";c.fillText("Level "+li.lv+" · "+curTitle(),70,200);
+ c.fillStyle="#fff";c.font="bold 150px system-ui,sans-serif";c.fillText(n,70,380);const nw=c.measureText(String(n)).width;c.fillStyle="#9a9ba3";c.font="40px system-ui,sans-serif";c.fillText("/ 1025 shinies · "+(n/1025*100).toFixed(1)+"%",100+nw,380);
+ c.fillStyle="#ffffff22";c.fillRect(70,420,W-140,26);const pg=c.createLinearGradient(70,0,W-70,0);pg.addColorStop(0,acc[0]);pg.addColorStop(1,acc[1]);c.fillStyle=pg;c.fillRect(70,420,(W-140)*n/1025,26);
+ c.fillStyle="#cfd0d6";c.font="34px system-ui,sans-serif";c.fillText("Newest shinies",70,520);
+ const ids=Object.entries(S.caught).sort((a,b)=>b[1].t-a[1].t).slice(0,8).map(x=>+x[0]),imgs=await Promise.all(ids.map(id=>loadImg(spr(id,1))));
+ imgs.forEach((im,i)=>{const x=70+(i%4)*240,y=550+Math.floor(i/4)*230;c.fillStyle="#ffffff10";c.fillRect(x,y,210,210);if(im){c.imageSmoothingEnabled=false;c.drawImage(im,x+5,y+5,200,200)}});
+ c.fillStyle="#6f7079";c.font="28px system-ui,sans-serif";c.fillText("ShinyDex · whoisstitch.github.io/shinydex",70,W-50);
+ let blob;try{blob=await new Promise(r=>cv.toBlob(r,"image/png"))}catch(e){}if(!blob){toast("Couldn't make the picture","Try again in a moment");return}
+ const f=new File([blob],"shinydex.png",{type:"image/png"});
+ if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f],title:"My ShinyDex"});return}catch(e){if(e.name==="AbortError")return}}
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="shinydex.png";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast("Share card saved","📸")};
+/* ---------- AI: hunt advisor, next-target picker, weekly recap ---------- */
+const ADVICE={sv:["Mass outbreak (clear 60+) with Sparkling Power 3 and the Shiny Charm",512],pla:["Massive Mass Outbreak with the Shiny Charm and research level 10",128],bdsp:["Poké Radar chain of 40",99],swsh:["Dynamax Adventures with the Shiny Charm (legendaries 1/100), or 500+ KOs + Charm for regular Pokémon",512],lg:["Catch combo of 31+ with a Lure and the Shiny Charm",273],usum:["SOS chain of 31+ with the Shiny Charm",273],sm:["SOS chain of 31+ with the Shiny Charm",273],oras:["DexNav chain or chain fishing (20+)",100],xy:["Chain fishing, Friend Safari or a Poké Radar chain of 40",100],b2w2:["Masuda Method with the Shiny Charm",1024],bw:["Masuda Method",1365],hgss:["Masuda Method",1638],dp:["Masuda Method (or Poké Radar chain in Platinum)",1638],pt:["Poké Radar chain of 40",200],frlg:["Soft resets / random encounters at full odds",8192],rse:["Soft resets / random encounters at full odds",8192],gsc:["Breed with a shiny Ditto",64],rby:["No shinies in Gen 1 – transfer from a later game",0]};
+const LEGADV={sv:"Scarlet/Violet box legends are shiny locked – try the Snacksworth legends or Tera Raids",swsh:"Dynamax Adventures (1/100 with the Charm)",usum:"Ultra Wormholes (up to ~36% at 3+ light years)",oras:"Soft resets (1/4096)"};
+function adviseHunt(p,game){const g=game&&ADVICE[game]?game:"sv",a=ADVICE[g],leg=p&&(p.c==="l"||p.c==="m"),chance=a[1]?(1-Math.pow(1-1/a[1],a[1]))*100:0;
+ let txt=`🎯 **Best way to hunt${p?" "+p.name:""} in ${GAMELBL[g]}:** ${leg&&LEGADV[g]?LEGADV[g]:a[0]}.`;
+ if(a[1])txt+=`\nOdds about **1 in ${num(a[1])}** – that's a **${chance.toFixed(0)}%** chance after ${num(a[1])} encounters.`;
+ if(!game)txt+=`\n_Tell me the game for a better tip, e.g. “how should I hunt ${p?p.name:"Ralts"} in Sword”._`;
+ return txt}
+function pickTargets(n=3){const gc=Array(9).fill(0);Object.keys(S.caught).forEach(id=>{const p=byId[id];if(p)gc[p.gen]++});const fav=gc.indexOf(Math.max(...gc));
+ return RAW.filter(p=>!S.caught[p.id]).map(p=>{const why=[];let s=Math.random()*1.5;if(S.targets.includes(p.id)){s+=3;why.push("it's on your targets list")}if(!p.c){s+=2;why.push("it's not shiny locked or legendary, so it's easy to find")}if(p.gen===fav&&nCaught()){s+=1;why.push("it fills your favourite gen ("+GENS[fav][0]+")")}if(featured().id===p.id){s+=2;why.push("it's today's featured shiny (+50 XP)")}return {p,s,why}}).sort((a,b)=>b.s-a.s).slice(0,n)}
+function weekRecap(){const wk=Date.now()-7*864e5,got=Object.entries(S.caught).filter(([,c])=>c.t>=wk).map(([id])=>byId[id]),hs=S.hunts.filter(h=>h.found&&h.found>=wk),act=S.hunts.filter(h=>!h.found),enc=act.reduce((a,h)=>a+h.enc,0);
+ let t=`📅 **Your week:** you caught **${got.length}** shin${got.length===1?"y":"ies"}${got.length?" – "+got.slice(0,6).map(p=>p.name).join(", ")+(got.length>6?" and more":""):""}.`;
+ if(hs.length)t+=`\nYou finished **${hs.length}** hunt${hs.length>1?"s":""}.`;
+ if(act.length)t+=`\n**${act.length}** hunt${act.length>1?"s are":" is"} still going, with **${num(enc)}** encounters so far.`;
+ const wc=weekCounts(1)[0];t+=`\nWeekly goal: **${wc}/${S.goals.w}**${wc>=S.goals.w?" ✅ done!":" – "+(S.goals.w-wc)+" to go."} You're at **${(nCaught()/1025*100).toFixed(1)}%** of the dex.`;
+ t+=got.length>=3?"\nGreat week – keep it up! 🔥":got.length?"\nNice progress! ✨":"\nQuiet week – want me to pick your next target?";return t}
+{const _si=smartIntent;smartIntent=function(t,mons,types,gen){const has=re=>re.test(t),R={text:"",embs:[],steps:[]},mon=mons[0];
+ if(has(/\b(recap|summary|summari[sz]e)\b|\bhow did i do\b|\bmy week\b|\bthis week\b.*\b(caught|catch|do)\b/)&&!mon){R.text=weekRecap();R.steps.push("Looked at your week");return R}
+ if(has(/\b(what|who|which)\b.*\b(hunt|target|go for|catch|get)\b.*\bnext\b|\bnext (target|hunt|shiny)\b|\b(suggest|pick|recommend)\b.*\b(target|hunt|shiny)\b/)&&!mon){const L=pickTargets();R.text="Here's what I'd hunt next:\n"+L.map((o,i)=>`${i+1}. **${o.p.name}** – ${o.why[0]||"you still need it"}`).join("\n");R.embs.push(`<div class="hbtns">${L.map(o=>btn("🎯 "+o.p.name,`data-act="newhuntf" data-id="${o.p.id}"`)).join("")}</div>`);R.steps.push("Picked targets");brainCtx.offer={type:"hunt",id:L[0].p.id};return R}
+ if(has(/\b(how (do|should|can|would) i|best (way|method|odds)|tips? (for|on)|advice)\b/)&&has(/\b(hunt|shiny|get|find|catch)\b/)){R.text=adviseHunt(mon,findGame(t));if(mon)R.embs.push(`<div class="hbtns">${btn("🎯 Start a hunt",`data-act="newhuntf" data-id="${mon.id}"`,1)}</div>`);R.steps.push("Checked hunting methods");return R}
+ return _si(t,mons,types,gen)}}
+/* ---------- voice: mic button in chat ---------- */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+function addMic(){const inp=$("cin");if(!SR||!inp||inp.parentNode.querySelector(".micb"))return;const b=document.createElement("button");b.className="ib micb";b.setAttribute("data-tip","Talk to the AI");b.textContent="🎤";inp.after(b);
+ b.onclick=()=>{const r=new SR();r.lang=navigator.language||"en-GB";r.interimResults=true;b.classList.add("on");
+  r.onresult=e=>{inp.value=Array.from(e.results).map(x=>x[0].transcript).join("");if(e.results[e.results.length-1].isFinal){b.classList.remove("on");setTimeout(chatSend,150)}};
+  r.onerror=e=>{b.classList.remove("on");if(e.error==="not-allowed")toast("Microphone blocked","Allow the mic for this site in your settings")};r.onend=()=>b.classList.remove("on");try{r.start()}catch(e){b.classList.remove("on")}}}
+{const _r=render;render=function(a){_r(a);addMic()}}
+/* Gemini key follows your account (stored only in your private cloud save, never in backups) */
+{const _g=setGemKey;setGemKey=function(k,fromCloud){_g(k);if(!fromCloud&&CL.user)push(true)}}
 /* palette */
 let pi=0,pres=[];
 function openPal(){openOv(`<div class="modal pal" style="padding:0;background:none;border:0"><input id="pq" placeholder="Search Pokémon, abilities, moves or pages..." autocomplete="off"><div class="res" id="pr"></div></div>`);const f=()=>{const q=$("pq").value.trim().toLowerCase();pres=PAGES.filter(p=>!q||p[1].toLowerCase().includes(q)).map(p=>({k:"page",id:p[0],n:ic(p[2],16)+" "+p[1],s:"Page"}));if(q){pres=pres.concat(RAW.filter(p=>p.q.includes(q)).slice(0,8).map(p=>({k:"mon",id:p.id,n:p.name,s:"#"+pad(p.id)})));pres=pres.concat(Object.keys(AB).filter(id=>AB[id][0].toLowerCase().includes(q)).slice(0,4).map(id=>({k:"abil",id,n:"\ud83d\udca0 "+AB[id][0],s:"Ability"})));pres=pres.concat(Object.keys(MV).filter(id=>MV[id][0].toLowerCase().includes(q)).slice(0,4).map(id=>({k:"move",id,n:"\u2694\ufe0f "+MV[id][0],s:"Move"})))}if(q)pres.push({k:"ask",id:$("pq").value.trim(),n:ic("bot",16)+" Ask ShinyDex AI: “"+esc($("pq").value.trim())+"”",s:"AI"});pi=0;pr()};
@@ -2239,4 +2315,4 @@ document.addEventListener("pointermove",e=>{if(reduced()||e.pointerType==="touch
 document.addEventListener("pointerout",e=>{const c=e.target.closest&&e.target.closest(".card");if(c){c.style.setProperty("--rx","0deg");c.style.setProperty("--ry","0deg")}});
 /* boot */
 applySet();dailyInit();checkAch();S.logSeen=S.logSeen||Date.now();render();booted=true;setTimeout(()=>{const sp=$("splash");if(sp){sp.classList.add("out");setTimeout(()=>sp.remove(),600)}},150);backupNudge();if(welcome)setTimeout(()=>toast("\ud83d\udd25 "+welcome.n+"-day streak!","+"+welcome.b+" XP daily bonus"),900);
-</script><script>window.SHINYDEX_VERSION="202610181725";if("serviceWorker" in navigator&&location.protocol==="https:"){navigator.serviceWorker.register("sw.js").then(r=>{r.update();r.addEventListener("updatefound",()=>{const w=r.installing;w&&w.addEventListener("statechange",()=>{if(w.state==="installed"&&navigator.serviceWorker.controller)toast("✨ ShinyDex updated","You're on the newest version")})})}).catch(()=>{})}</script></body></html>
+</script><script>window.SHINYDEX_VERSION="202610181734";if("serviceWorker" in navigator&&location.protocol==="https:"){navigator.serviceWorker.register("sw.js").then(r=>{r.update();r.addEventListener("updatefound",()=>{const w=r.installing;w&&w.addEventListener("statechange",()=>{if(w.state==="installed"&&navigator.serviceWorker.controller)toast("✨ ShinyDex updated","You're on the newest version")})})}).catch(()=>{})}</script></body></html>
