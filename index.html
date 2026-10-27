@@ -510,6 +510,12 @@ body.rainbow .shell{animation:rb 1.2s linear infinite}@keyframes rb{to{filter:hu
 .wkchart{width:100%;height:auto;display:block}.wkchart text{font-size:9px;fill:var(--mu)}
 .jlist{display:flex;flex-direction:column;gap:6px;max-height:520px;overflow:auto}.jrow{display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid var(--bd)}.jrow:last-child{border:0}.jrow img{width:48px;height:48px;cursor:pointer}.jnote{font-size:13px;margin-top:2px;opacity:.85}
 .micb.on{color:var(--bad);animation:pulse2 1s ease-in-out infinite}
+.plist{display:flex;flex-direction:column;gap:8px;margin-top:12px}.prow{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:var(--card2);border:1px solid var(--bd)}.prow.on{border-color:var(--ac)}.prow small{display:block}.pico{font-size:26px}
+.bs.fem small{color:#ff8fc8}.bs.dead{opacity:.55}.bs.dead::after{content:"💀";position:absolute;top:3px;right:4px;font-size:13px}
+.nzl{display:flex;flex-direction:column;gap:6px;padding:8px}.nzr{display:grid;grid-template-columns:minmax(140px,1fr) 2fr auto;gap:10px;align-items:center;padding:8px;border-radius:12px;border:1px solid var(--bd)}
+.nzr.s-dead{opacity:.6;border-color:var(--bad)}.nzr.s-alive{border-color:color-mix(in srgb,var(--ok) 60%,transparent)}.nzr.s-missed{opacity:.5}
+.nzm{display:flex;align-items:center;gap:8px;min-width:0}.nzm img,.nze{width:44px;height:44px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--mu)}.nzm input{min-width:0;flex:1}.nzn{max-width:130px}.nzo{display:flex;gap:8px;align-items:center}
+@media(max-width:900px){.nzr{grid-template-columns:1fr}.nzo select{flex:1}}
 @media(max-width:900px){.hdr{padding-top:env(safe-area-inset-top);height:calc(52px + env(safe-area-inset-top))}.rail,.chan{padding-top:env(safe-area-inset-top)}input,select,textarea{font-size:16px!important}body{-webkit-tap-highlight-color:transparent;overscroll-behavior:none}}</style></head><body>
 <canvas id="bg"></canvas><canvas id="fx"></canvas>
 <div class="shell" id="shell">
@@ -2278,6 +2284,87 @@ function addMic(){const inp=$("cin");if(!SR||!inp||inp.parentNode.querySelector(
 {const _r=render;render=function(a){_r(a);addMic()}}
 /* Gemini key follows your account (stored only in your private cloud save, never in backups) */
 {const _g=setGemKey;setGemKey=function(k,fromCloud){_g(k);if(!fromCloud&&CL.user)push(true)}}
+/* ================= save profiles, Scarlet/Violet nuzlocke tracker, gender variants in boxes ================= */
+S.profiles=S.profiles||{active:"main",list:[{id:"main",name:"Main dex",game:"",mode:"living",gender:false}]};
+S.pdata=S.pdata||{};S.fem=S.fem||{};
+const nuzDef=()=>({areas:{},extra:[],rules:"1. Only the first Pokémon you meet in each area counts.\n2. Shinies can always be caught, even if it's not your first encounter.\n3. If a Pokémon faints it's dead – it goes in the graveyard.\n4. Dupes clause: if the first encounter is a Pokémon you already have, you can skip it.\n5. Nickname everything you catch.",dead:{}});
+S.nuz=Object.assign(nuzDef(),S.nuz||{});
+const PKEYS=["caught","hunts","targets","nuz","fem"];
+const curProf=()=>S.profiles.list.find(p=>p.id===S.profiles.active)||S.profiles.list[0];
+/* profiles, female shinies and the nuzlocke travel with the cloud save */
+{const _sy=syncable;syncable=function(){const o=JSON.parse(_sy());o.profiles=S.profiles;o.pdata=S.pdata;o.nuz=S.nuz;o.fem=S.fem;return JSON.stringify(o)}}
+function switchProf(id){if(id===S.profiles.active)return;const cur=S.profiles.active,o={};PKEYS.forEach(k=>o[k]=S[k]);S.pdata[cur]=o;
+ const n=S.pdata[id]||{};S.caught=n.caught||{};S.hunts=n.hunts||[];S.targets=n.targets||[];S.nuz=Object.assign(nuzDef(),n.nuz||{});S.fem=n.fem||{};delete S.pdata[id];
+ S.profiles.active=id;const p=curProf();S.ui.boxOrder=p.game||"";S.ui.dexKey=p.game||"";S.ui.box=0;S.ui.sel=null;lastXp=null;lastLv=null;save();chrome();render(false);toast("Switched to "+esc(p.name),p.mode==="nuz"?"Shiny living dex nuzlocke":"Living dex")}
+const PROF_GAMES=()=>`<option value="">🌐 All games (National Dex)</option>`+GAMEDEX.map(g=>`<option value="${g.k}">${g.n}</option>`).join("");
+ROUTE_SEC.profiles="me";ROUTES.push("profiles");
+SECTIONS.find(s=>s.k==="me").cats[0][1].splice(1,0,["profiles","Save Profiles","Separate saves – e.g. a Scarlet/Violet nuzlocke","users"]);
+CHINFO.profiles={n:"Save Profiles",t:"Separate saves – e.g. a Scarlet/Violet nuzlocke",i:"users",s:"me"};
+VIEWS.profiles=()=>{const A=S.profiles.active;
+ return `<div class="panel"><b>What's a profile?</b><p class="hint" style="margin:4px 0 0">Each profile is its own save: its own caught shinies, hunts, boxes and nuzlocke. Your level, settings and badges are shared. Switch any time.</p></div>
+ <div class="plist">${S.profiles.list.map(p=>{const d=p.id===A?S:S.pdata[p.id]||{},n=Object.keys(d.caught||{}).length,g=GAMEDEX.find(x=>x.k===p.game);return `<div class="prow${p.id===A?" on":""}"><div class="pico">${p.mode==="nuz"?"💀":"✨"}</div><div style="flex:1;min-width:0"><b>${esc(p.name)}</b>${p.id===A?' <span class="chip on">Active</span>':""}<small class="hint">${g?g.n:"All games"} · ${p.mode==="nuz"?"Shiny living dex nuzlocke":"Living dex"}${p.gender?" · ♀ variants":""} · ${n} caught</small></div>${p.id===A?"":`<button class="btn sm pri" data-act="pswitch" data-id="${p.id}">Use</button>`}<button class="btn sm" data-act="pedit2" data-id="${p.id}">Edit</button>${S.profiles.list.length>1?`<button class="btn sm dng" data-act="pdel" data-id="${p.id}">✕</button>`:""}</div>`}).join("")}</div>
+ <h2 class="sec">➕ New profile</h2>
+ <div class="panel fgrid" id="pnew"><div class="fld"><label>Name</label><input id="pn" class="btn" placeholder="e.g. Scarlet nuzlocke" maxlength="40"></div>
+ <div class="fld"><label>Game</label><select id="pg" class="btn">${PROF_GAMES()}</select></div>
+ <div class="fld"><label>Type</label><select id="pm" class="btn"><option value="living">✨ Shiny living dex</option><option value="nuz">💀 Shiny living dex nuzlocke</option></select></div>
+ <label class="chk fld"><input type="checkbox" id="pgv"> Include gender variants (♀ forms get their own box slot)</label>
+ <div><button class="btn pri" data-act="pmake">Create profile</button> <button class="btn" data-act="psv">⚡ Quick: Scarlet/Violet nuzlocke</button></div></div>`};
+function newProf(name,game,mode,gender){const p={id:uid(),name:name||"New profile",game,mode,gender};S.profiles.list.push(p);save();switchProf(p.id);if(mode==="nuz")location.hash="#/nuzlocke"}
+acts.pmake=()=>newProf($("pn").value.trim(),$("pg").value,$("pm").value,$("pgv").checked);
+acts.psv=()=>newProf("Scarlet/Violet nuzlocke","sv","nuz",true);
+acts.pswitch=el=>switchProf(el.dataset.id);
+acts.pdel=el=>{const p=S.profiles.list.find(x=>x.id===el.dataset.id);if(!p||!confirm("Delete the profile “"+p.name+"” and everything in it?"))return;if(p.id===S.profiles.active)switchProf(S.profiles.list.find(x=>x.id!==p.id).id);S.profiles.list=S.profiles.list.filter(x=>x.id!==p.id);delete S.pdata[p.id];save();render(false)};
+acts.pedit2=el=>{const p=S.profiles.list.find(x=>x.id===el.dataset.id);if(!p)return;const n=prompt("Profile name:",p.name);if(n===null)return;p.name=n.trim()||p.name;p.gender=confirm("Show gender variants (♀ forms) in this profile's boxes?\nOK = yes, Cancel = no");save();render(false)};
+/* ---------- gender variants ---------- */
+const GENDER=new Set([3,12,19,20,25,26,41,42,44,45,64,65,84,85,97,111,112,118,119,123,129,130,154,165,166,178,185,186,190,194,195,198,202,203,207,208,212,214,215,217,221,224,229,232,255,256,257,267,269,272,274,275,307,308,315,316,317,322,323,332,350,369,396,397,398,399,400,401,402,403,404,405,407,415,417,418,419,424,443,444,445,449,450,453,454,456,457,459,460,461,464,465,473,521,592,593,668,678,876,902,916]);
+const FEMFORM={678:10025,876:10186,902:10248,916:10254};
+const fspr=id=>FEMFORM[id]?spr(FEMFORM[id],1):`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/female/${id}.png`;
+const isF=k=>typeof k==="string";const fid=k=>+String(k).slice(1);
+const slotOn=k=>isF(k)?!!S.fem[fid(k)]:!!S.caught[k];
+function boxIds2(){const b=boxIds();if(!curProf().gender)return b;const o=[];b.forEach(id=>{o.push(id);if(GENDER.has(id))o.push("f"+id)});return o}
+boxCount=function(ids,b){let n=0;for(let i=b*30;i<Math.min(ids.length,b*30+30);i++)if(slotOn(ids[i]))n++;return n};
+const slotLab=k=>isF(k)?pad(fid(k))+"♀":pad(k);
+boxDraw=function(anim){const ids=boxIds2(),N=Math.ceil(ids.length/30);if(S.ui.box>=N)S.ui.box=0;const b=S.ui.box,from=b*30,part=ids.slice(from,from+30),n=boxCount(ids,b),dead=S.nuz.dead||{};
+ $("bstrip").innerHTML=Array.from({length:N},(_,i)=>{const c=boxCount(ids,i),t=Math.min(30,ids.length-i*30);return `<button class="bm${i===b?" on":""}${c===t?" full":""}" data-box="${i}" title="Box ${i+1}: ${c}/${t}" style="--p:${c/t*100}%">${i+1}</button>`}).join("");
+ $("boxw").innerHTML=`<div class="boxc${anim?" flip"+(anim>0?"r":"l"):""}${n===part.length?" full":""}"><div class="boxh"><button class="btn" data-act="bnav" data-d="-1">◀</button><div class="boxt"><b>Box ${b+1}</b><small>#${slotLab(part[0])} – #${slotLab(part[part.length-1])} · ${n}/${part.length}</small><div class="mbar"><i style="width:${n/part.length*100}%"></i></div></div><button class="btn" data-act="bnav" data-d="1">▶</button></div>
+ <div class="boxg">${part.map((k,i)=>{const f=isF(k),id=f?fid(k):k;return `<div class="bs${slotOn(k)?" done":""}${f?" fem":""}${!f&&dead[id]?" dead":""}" data-bid="${k}" style="animation-delay:${i*14}ms" title="${byId[id].name}${f?" ♀":""}"><img loading="lazy" src="${f?fspr(id):spr(id)}" alt="" onerror="this.onerror=null;this.src='${spr(id)}'"><small>${slotLab(k)}</small></div>`}).join("")}</div>
+ <div class="hbtns" style="margin-top:12px;justify-content:center"><button class="btn sm" data-act="bfill">Mark box caught</button><button class="btn sm dng" data-act="bclear">Clear box</button><button class="btn sm" data-act="bgender">${curProf().gender?"Hide":"Show"} ♀ variants</button></div></div>`};
+boxNav=function(d){const N=Math.ceil(boxIds2().length/30);S.ui.box=(S.ui.box+d+N)%N;save();boxDraw(d)};
+acts.bgender=()=>{const p=curProf();p.gender=!p.gender;S.ui.box=0;save();boxDraw(0)};
+acts.bfill=()=>{const ids=boxIds2(),b=S.ui.box;for(let i=b*30;i<Math.min(ids.length,b*30+30);i++){const k=ids[i];if(isF(k))S.fem[fid(k)]=S.fem[fid(k)]||Date.now();else if(!S.caught[k])S.caught[k]={t:Date.now(),m:"",g:"",b:"",e:0,n:""}}save();chrome();checkAch();boxDraw(0);bigBurst()};
+acts.bclear=()=>{if(!confirm("Clear this box?"))return;const ids=boxIds2(),b=S.ui.box;for(let i=b*30;i<Math.min(ids.length,b*30+30);i++){const k=ids[i];if(isF(k))delete S.fem[fid(k)];else delete S.caught[k]}save();chrome();boxDraw(0)};
+document.addEventListener("click",e=>{if(route!=="boxes")return;const bs=e.target.closest(".bs");if(!bs||!$("boxw")||!$("boxw").contains(bs))return;e.stopImmediatePropagation();
+ const raw=bs.dataset.bid,k=raw[0]==="f"?raw:+raw,on=!slotOn(k);
+ if(isF(k)){if(on){S.fem[fid(k)]=Date.now();const r=bs.getBoundingClientRect();burst(r.left+r.width/2,r.top+r.height/2,36);beep()}else delete S.fem[fid(k)];save()}else setCaught(k,on,{},bs);
+ const ids=boxIds2(),b=S.ui.box,n=boxCount(ids,b),len=Math.min(30,ids.length-b*30),box=$("boxw").querySelector(".boxc"),was=box.classList.contains("full");
+ bs.classList.toggle("done",on);$("boxw").querySelector(".boxt small").innerHTML=`#${slotLab(ids[b*30])} – #${slotLab(ids[b*30+len-1])} · ${n}/${len}`;$("boxw").querySelector(".boxt .mbar i").style.width=n/len*100+"%";
+ box.classList.toggle("full",n===len);if(n===len&&!was){bigBurst();toast("📦 Box "+(b+1)+" complete!","Every slot is filled")}
+ const bm=$("bstrip").querySelector(`[data-box="${b}"]`);if(bm){bm.style.setProperty("--p",n/len*100+"%");bm.classList.toggle("full",n===len)}},true);
+/* ---------- nuzlocke tracker ---------- */
+const SV_AREAS=["Cabo Poco","Poco Path","Inlet Grotto","Los Platos","Mesagoza","South Province (Area One)","South Province (Area Two)","South Province (Area Three)","South Province (Area Four)","South Province (Area Five)","South Province (Area Six)","Artazon","Levincia","Cortondo","Alfornada","Asado Desert","East Province (Area One)","East Province (Area Two)","East Province (Area Three)","West Province (Area One)","West Province (Area Two)","West Province (Area Three)","Cascarrafa","Porto Marinada","Tagtree Thicket","Medali","Montenevera","Zapapico","Dalizapa Passage","Glaseado Mountain","North Province (Area One)","North Province (Area Two)","North Province (Area Three)","Casseroya Lake","Socarrat Trail","Area Zero","Great Crater of Paldea","Kitakami: Mossui Town","Kitakami: Apple Hills","Kitakami: Reveler's Road","Kitakami: Kitakami Road","Kitakami: Oni Mountain","Kitakami: Paradise Barrens","Kitakami: Timeless Woods","Kitakami: Wistful Fields","Kitakami: Fellhorn Gorge","Kitakami: Chilling Waterhead","Kitakami: Infernal Pass","Kitakami: Crystal Pool","Blueberry: Savanna Biome","Blueberry: Coastal Biome","Blueberry: Canyon Biome","Blueberry: Polar Biome","Blueberry: Terarium Central"];
+const nuzAreas=()=>(curProf().game==="sv"||!curProf().game?SV_AREAS:[]).concat(S.nuz.extra||[]);
+const NST=[["","—"],["alive","🟢 In team / alive"],["box","📦 Boxed"],["dead","💀 Dead"],["missed","❌ Missed / failed"]];
+ROUTE_SEC.nuzlocke="hunt";ROUTES.push("nuzlocke");
+SECTIONS.find(s=>s.k==="hunt").cats[0][1].push(["nuzlocke","Nuzlocke","Track a shiny living dex nuzlocke – one encounter per area","skull"]);
+CHINFO.nuzlocke={n:"Nuzlocke",t:"Track a shiny living dex nuzlocke – one encounter per area",i:"skull",s:"hunt"};
+VIEWS.nuzlocke=()=>{const p=curProf(),A=S.nuz.areas,L=nuzAreas(),v=Object.values(A),c=s=>v.filter(x=>x.status===s).length;
+ const head=p.mode!=="nuz"?`<div class="panel" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="flex:1;min-width:200px">You're on the <b>${esc(p.name)}</b> profile. Make a separate nuzlocke profile so it has its own dex and boxes.</span><button class="btn pri" data-act="psv">⚡ Start a Scarlet/Violet nuzlocke</button></div>`:"";
+ return `${head}<div class="g4" style="margin-top:12px"><div class="stat"><b>${v.filter(x=>x.mon).length}</b><small>encounters</small></div><div class="stat"><b>${c("alive")+c("box")}</b><small>alive</small></div><div class="stat"><b>${c("dead")}</b><small>💀 dead</small></div><div class="stat"><b>${v.filter(x=>x.shiny&&x.mon).length}</b><small>✨ shinies</small></div></div>
+ <h2 class="sec">🗺️ Encounters <small>${L.length} areas</small></h2>${monList()}
+ <div class="panel nzl" id="nzl">${L.map(a=>{const e=A[a]||{},m=e.mon&&byId[e.mon];return `<div class="nzr${e.status?" s-"+e.status:""}" data-area="${esc(a)}"><div class="nza"><b>${esc(a)}</b></div><div class="nzm">${m?`<img src="${e.shiny?spr(m.id,1):`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${m.id}.png`}" alt="" data-act="mon" data-id="${m.id}">`:'<span class="nze">?</span>'}<input class="btn" list="mdl" data-f="mon" placeholder="Pokémon" value="${m?esc(m.name):""}" autocomplete="off"><input class="btn nzn" data-f="nick" placeholder="Nickname" value="${esc(e.nick||"")}" maxlength="20"></div><div class="nzo"><select class="btn" data-f="status">${NST.map(([k,l])=>`<option value="${k}"${e.status===k?" selected":""}>${l}</option>`).join("")}</select><label class="chk"><input type="checkbox" data-f="shiny"${e.shiny?" checked":""}> ✨</label></div></div>`}).join("")}</div>
+ <div class="hbtns" style="margin-top:10px"><button class="btn" data-act="nzadd">＋ Add an area</button><button class="btn dng" data-act="nzreset">Reset run</button></div>
+ <h2 class="sec">📜 Rules</h2><div class="panel"><textarea id="nzrules" class="btn" rows="7" style="width:100%;text-align:left;font:inherit">${esc(S.nuz.rules)}</textarea></div>`};
+INIT.nuzlocke=()=>{const w=$("nzl");if(!w)return;
+ w.addEventListener("change",e=>{const f=e.target.dataset.f,row=e.target.closest(".nzr");if(!f||!row)return;const a=row.dataset.area,en=S.nuz.areas[a]=S.nuz.areas[a]||{};
+  if(f==="mon"){const q=e.target.value.trim().toLowerCase(),m=RAW.find(x=>x.name.toLowerCase()===q);if(q&&!m){toast("Couldn't find that Pokémon","Pick one from the list");return}en.mon=m?m.id:null;if(m&&!en.status)en.status="alive"}
+  else if(f==="shiny")en.shiny=e.target.checked;else if(f==="nick")en.nick=e.target.value.trim();else en.status=e.target.value;
+  if(en.mon){S.nuz.dead[en.mon]=en.status==="dead"?1:undefined;if(en.shiny&&(en.status==="alive"||en.status==="box"||en.status==="dead")&&!S.caught[en.mon])setCaught(en.mon,true,{g:"Scarlet/Violet",m:"Nuzlocke",n:en.nick||""})}
+  save();render(false)});
+ $("nzrules").addEventListener("input",e=>{S.nuz.rules=e.target.value;save()})};
+acts.nzadd=()=>{const n=prompt("Area name:");if(!n||!n.trim())return;S.nuz.extra.push(n.trim().slice(0,60));save();render(false)};
+acts.nzreset=()=>{if(!confirm("Clear every encounter in this nuzlocke? Your caught shinies stay."))return;S.nuz.areas={};S.nuz.dead={};save();render(false)};
+ICONS.users='<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.8c1.9.7 3.1 2.4 3.5 5.2"/>';
+ICONS.skull='<path d="M12 3a8 8 0 0 0-8 8c0 2.6 1.2 4.4 3 5.5V20h10v-3.5c1.8-1.1 3-2.9 3-5.5a8 8 0 0 0-8-8z"/><circle cx="9" cy="11.5" r="1.6" fill="currentColor"/><circle cx="15" cy="11.5" r="1.6" fill="currentColor"/><path d="M10 20v-2M14 20v-2"/>';
 /* palette */
 let pi=0,pres=[];
 function openPal(){openOv(`<div class="modal pal" style="padding:0;background:none;border:0"><input id="pq" placeholder="Search Pokémon, abilities, moves or pages..." autocomplete="off"><div class="res" id="pr"></div></div>`);const f=()=>{const q=$("pq").value.trim().toLowerCase();pres=PAGES.filter(p=>!q||p[1].toLowerCase().includes(q)).map(p=>({k:"page",id:p[0],n:ic(p[2],16)+" "+p[1],s:"Page"}));if(q){pres=pres.concat(RAW.filter(p=>p.q.includes(q)).slice(0,8).map(p=>({k:"mon",id:p.id,n:p.name,s:"#"+pad(p.id)})));pres=pres.concat(Object.keys(AB).filter(id=>AB[id][0].toLowerCase().includes(q)).slice(0,4).map(id=>({k:"abil",id,n:"\ud83d\udca0 "+AB[id][0],s:"Ability"})));pres=pres.concat(Object.keys(MV).filter(id=>MV[id][0].toLowerCase().includes(q)).slice(0,4).map(id=>({k:"move",id,n:"\u2694\ufe0f "+MV[id][0],s:"Move"})))}if(q)pres.push({k:"ask",id:$("pq").value.trim(),n:ic("bot",16)+" Ask ShinyDex AI: “"+esc($("pq").value.trim())+"”",s:"AI"});pi=0;pr()};
@@ -2315,4 +2402,4 @@ document.addEventListener("pointermove",e=>{if(reduced()||e.pointerType==="touch
 document.addEventListener("pointerout",e=>{const c=e.target.closest&&e.target.closest(".card");if(c){c.style.setProperty("--rx","0deg");c.style.setProperty("--ry","0deg")}});
 /* boot */
 applySet();dailyInit();checkAch();S.logSeen=S.logSeen||Date.now();render();booted=true;setTimeout(()=>{const sp=$("splash");if(sp){sp.classList.add("out");setTimeout(()=>sp.remove(),600)}},150);backupNudge();if(welcome)setTimeout(()=>toast("\ud83d\udd25 "+welcome.n+"-day streak!","+"+welcome.b+" XP daily bonus"),900);
-</script><script>window.SHINYDEX_VERSION="202610181734";if("serviceWorker" in navigator&&location.protocol==="https:"){navigator.serviceWorker.register("sw.js").then(r=>{r.update();r.addEventListener("updatefound",()=>{const w=r.installing;w&&w.addEventListener("statechange",()=>{if(w.state==="installed"&&navigator.serviceWorker.controller)toast("✨ ShinyDex updated","You're on the newest version")})})}).catch(()=>{})}</script></body></html>
+</script><script>window.SHINYDEX_VERSION="202610272147";if("serviceWorker" in navigator&&location.protocol==="https:"){navigator.serviceWorker.register("sw.js").then(r=>{r.update();r.addEventListener("updatefound",()=>{const w=r.installing;w&&w.addEventListener("statechange",()=>{if(w.state==="installed"&&navigator.serviceWorker.controller)toast("✨ ShinyDex updated","You're on the newest version")})})}).catch(()=>{})}</script></body></html>
